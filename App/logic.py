@@ -25,6 +25,7 @@ def new_logic():
         "mmsi_records_map": mp.new_map(15000),
         "edge_info_map":    mp.new_map(50000),
         "graph":            digraph.new_graph(3000),
+        "vertex_order": al.new_list(),
     }
     return catalog
 
@@ -41,85 +42,190 @@ def load_data(catalog, filename):
     archivo = csv.DictReader(open(ruta, encoding='utf-8'))
  
     for fila in archivo:
-        registro = limpiar_registro(fila)
-        al.add_last(catalog["registros"], registro)
-        catalog["total_registros"] += 1
- 
-        zona = registro["zona"]
-        mmsi = registro["mmsi"]
- 
-        vertice = mp.get(catalog["vertices"], zona)
-        if vertice is None:
-            vertice = nuevo_vertice(registro)
-            mp.put(catalog["vertices"], zona, vertice)
-        else:
-            actualizar_vertice(vertice, registro)
- 
-        cola = mp.get(catalog["mapa_mmsi"], mmsi)
-        if cola is None:
-            cola = pq.new_heap(is_min_pq=True)
-            mp.put(catalog["mapa_mmsi"], mmsi, cola)
-            catalog["total_embarcaciones"] += 1
-        pq.insert(cola, registro, registro["fecha"])
- 
-    llaves_zonas = mp.key_set(catalog["vertices"])
-    for zona in llaves_zonas["elements"]:
-        vertice = mp.get(catalog["vertices"], zona)
-        finalizar_vertice(vertice)
-        digraph.insert_vertex(catalog["grafo"], zona, vertice)
- 
-    llaves_mmsi = mp.key_set(catalog["mapa_mmsi"])
-    for mmsi in llaves_mmsi["elements"]:
-        cola = mp.get(catalog["mapa_mmsi"], mmsi)
- 
+            registro = limpiar_registro(fila)
+            al.add_last(catalog["records"], registro)
+            catalog["total_records"] += 1
+
+            zona = registro["zona"]
+            mmsi = registro["mmsi"] 
+
+            # Vértice por zona, info acumulada y lista de registros
+            if not digraph.contains_vertex(catalog["graph"], zona):
+                records_list = al.new_list()
+                al.add_last(records_list, registro)
+
+                map_mmsi= mp.new_map(10)
+                map_nombres = mp.new_map(10)
+                map_tipos = mp.new_map(10)
+                map_cargas  = mp.new_map(10)
+                map_categorias = mp.new_map(10)
+                mp.put(map_mmsi,registro["mmsi"], registro["mmsi"])
+                mp.put(map_nombres,registro["nombre"],registro["nombre"])
+                mp.put(map_tipos,registro["tipo"],registro["tipo"])
+                mp.put(map_cargas,registro["carga"],registro["carga"])
+                mp.put(map_categorias, registro["categoria_velocidad"], registro["categoria_velocidad"])
+
+                info = {
+                    "id":zona,
+                    "suma_lat":registro["lat"],
+                    "suma_lon":registro["lon"],
+                    "suma_velocidad": registro["velocidad"],
+                    "suma_longitud": registro["longitud"],
+                    "suma_ancho": registro["ancho"],
+                    "suma_calado":registro["calado"],
+                    "records_count":1,
+                    "map_mmsi":map_mmsi,
+                    "map_nombres":map_nombres,
+                    "map_tipos": map_tipos,
+                    "map_cargas":map_cargas,
+                    "map_categorias": map_categorias,
+                    "records":records_list,
+                }
+                digraph.insert_vertex(catalog["graph"], zona, info)
+                al.add_last(catalog["vertex_order"], zona)
+
+            else:
+                # Zona ya existe: obtener info y acumular
+                info = digraph.get_vertex_info(catalog["graph"], zona)
+                info["suma_lat"] += registro["lat"]
+                info["suma_lon"] += registro["lon"]
+                info["suma_velocidad"] += registro["velocidad"]
+                info["suma_longitud"]  += registro["longitud"]
+                info["suma_ancho"]  += registro["ancho"]
+                info["suma_calado"] += registro["calado"]
+                info["records_count"]+= 1
+                mp.put(info["map_mmsi"],registro["mmsi"],registro["mmsi"])
+                mp.put(info["map_nombres"],registro["nombre"], registro["nombre"])
+                mp.put(info["map_tipos"],registro["tipo"], registro["tipo"])
+                mp.put(info["map_cargas"],registro["carga"],registro["carga"])
+                mp.put(info["map_categorias"],registro["categoria_velocidad"], registro["categoria_velocidad"])
+                al.add_last(info["records"], registro)
+                digraph.update_vertex_info(catalog["graph"], zona, info)
+
+            # Priority queue por embarcación, prioridad = BASEDATETIME
+            cola = mp.get(catalog["mmsi_records_map"], mmsi)
+            if cola is None:
+                cola = pq.new_heap(is_min_heap=True)
+                mp.put(catalog["mmsi_records_map"], mmsi, cola)
+                catalog["total_vessels"] += 1
+            pq.insert(cola, registro["fecha"], registro)
+
+    #finalizar vértices (calcular promedios y listas)
+    llaves_zonas = digraph.vertices(catalog["graph"])
+    for i in range(al.size(llaves_zonas)):
+        zona = al.get_element(llaves_zonas, i)
+        info = digraph.get_vertex_info(catalog["graph"], zona)
+        n = info["records_count"]
+
+        info["lat"] = round(info["suma_lat"] / n, 2)
+        info["lon"] = round(info["suma_lon"] / n, 2)
+        info["avg_sog"] = round(info["suma_velocidad"] / n, 2)
+        info["avg_length"] = round(info["suma_longitud"] / n, 2)
+        info["avg_width"] = round(info["suma_ancho"] / n, 2)
+        info["avg_draft"] = round(info["suma_calado"]/ n, 2)
+        info["mmsi_list"] = mp.key_set(info["map_mmsi"])
+        info["vessel_names"] = mp.key_set(info["map_nombres"])
+        info["vessel_types"] = mp.key_set(info["map_tipos"])
+        info["cargo_types"] = mp.key_set(info["map_cargas"])
+        info["speed_categories"] = mp.key_set(info["map_categorias"])
+        # Liberar acumuladores internos
+        info["suma_lat"] = None
+        info["suma_lon"] = None
+        info["suma_velocidad"]  = None
+        info["suma_longitud"] = None
+        info["suma_ancho"] = None
+        info["suma_calado"] = None
+        info["map_mmsi"] = None
+        info["map_nombres"] = None
+        info["map_tipos"] = None
+        info["map_cargas"] = None
+        info["map_categorias"]  = None
+
+        digraph.update_vertex_info(catalog["graph"], zona, info)
+
+    #recorrer trayectorias y construir edge_info_map
+    llaves_mmsi = mp.key_set(catalog["mmsi_records_map"])
+    for i in range(al.size(llaves_mmsi)):
+        mmsi = al.get_element(llaves_mmsi, i)
+        cola = mp.get(catalog["mmsi_records_map"], mmsi)
+
         registros_ordenados = al.new_list()
         while not pq.is_empty(cola):
-            registro = pq.del_min(cola)
+            registro = pq.remove(cola)
             al.add_last(registros_ordenados, registro)
- 
+
         n = al.size(registros_ordenados)
-        for i in range(n - 1):
-            reg_a = al.get_element(registros_ordenados, i)
-            reg_b = al.get_element(registros_ordenados, i + 1)
- 
+        for j in range(n - 1):
+            reg_a = al.get_element(registros_ordenados, j)
+            reg_b = al.get_element(registros_ordenados, j + 1)
+
             zona_a = reg_a["zona"]
             zona_b = reg_b["zona"]
- 
+
             if zona_a == zona_b:
                 continue
- 
+
             llave_arco = zona_a + "_" + zona_b
- 
+
             t1 = datetime.strptime(reg_a["fecha"], "%Y-%m-%d %H:%M:%S")
             t2 = datetime.strptime(reg_b["fecha"], "%Y-%m-%d %H:%M:%S")
             tiempo_min = abs((t2 - t1).total_seconds() / 60)
- 
-            arco = mp.get(catalog["mapa_arcos"], llave_arco)
+
+            arco = mp.get(catalog["edge_info_map"], llave_arco)
             if arco is None:
-                va   = mp.get(catalog["vertices"], zona_a)
-                vb   = mp.get(catalog["vertices"], zona_b)
-                dist = distancia_haversine(va["lat"], va["lon"], vb["lat"], vb["lon"])
-                arco = nuevo_arco(zona_a, zona_b, dist, tiempo_min, mmsi, reg_a["categoria_velocidad"])
-                mp.put(catalog["mapa_arcos"], llave_arco, arco)
+                info_a = digraph.get_vertex_info(catalog["graph"], zona_a)
+                info_b = digraph.get_vertex_info(catalog["graph"], zona_b)
+                dist = distancia_haversine(info_a["lat"], info_a["lon"],
+                                           info_b["lat"], info_b["lon"])
+                times_list = al.new_list()
+                mmsi_list = al.new_list()
+                categorias_list = al.new_list()
+                al.add_last(times_list,tiempo_min)
+                al.add_last(mmsi_list, mmsi)
+                al.add_last(categorias_list, reg_a["categoria_velocidad"])
+                arco = {
+                    "source":zona_a,
+                    "target":zona_b,
+                    "trips_count":1,
+                    "distance":dist,
+                    "times":times_list,
+                    "trip_mmsi_list":mmsi_list,
+                    "trip_speed_categories": categorias_list,
+                    "avg_time":None,
+                }
+                mp.put(catalog["edge_info_map"], llave_arco, arco)
             else:
-                actualizar_arco(arco, tiempo_min, mmsi, reg_a["categoria_velocidad"])
- 
-    llaves_arcos = mp.key_set(catalog["mapa_arcos"])
-    for llave_arco in llaves_arcos["elements"]:
-        arco = mp.get(catalog["mapa_arcos"], llave_arco)
-        arco["tiempo_promedio"] = round(arco["suma_tiempos"] / arco["total_viajes"], 2)
-        del arco["suma_tiempos"]
-        digraph.add_edge(catalog["grafo"], arco["origen"], arco["destino"], arco["distancia"])
- 
+                arco["trips_count"] += 1
+                al.add_last(arco["times"], tiempo_min)
+                al.add_last(arco["trip_mmsi_list"],mmsi)
+                al.add_last(arco["trip_speed_categories"], reg_a["categoria_velocidad"])
+
+    # calcular avg_time y agregar arcos al grafo
+    llaves_arcos = mp.key_set(catalog["edge_info_map"])
+    for i in range(al.size(llaves_arcos)):
+        llave_arco = al.get_element(llaves_arcos, i)
+        arco = mp.get(catalog["edge_info_map"], llave_arco)
+
+        n_tiempos = al.size(arco["times"])
+        if n_tiempos > 0:
+            suma = 0.0
+            for j in range(al.size(arco["times"])):
+                suma += al.get_element(arco["times"], j)
+            arco["avg_time"] = round(suma / n_tiempos, 2)
+        else:
+            arco["avg_time"] = 0.0
+
+        digraph.add_edge(catalog["graph"], arco["source"], arco["target"], arco["distance"])
+
     tiempo_fin = get_time()
     delta = delta_time(tiempo_inicio, tiempo_fin)
- 
+
     primeros, ultimos = primeros_ultimos_vertices(catalog)
     return (catalog,
-            catalog["total_registros"],
-            catalog["total_embarcaciones"],
-            digraph.order(catalog["grafo"]),
-            digraph.size(catalog["grafo"]),
+            catalog["total_records"],
+            catalog["total_vessels"],
+            digraph.order(catalog["graph"]),
+            digraph.size(catalog["graph"]),
             delta,
             primeros,
             ultimos)
@@ -141,99 +247,37 @@ def limpiar_registro(fila):
         "carga":              str(fila["CARGO"])           if fila["CARGO"]           else "Unknown",
         "categoria_velocidad":str(fila["SPEED_CATEGORY"])  if fila["SPEED_CATEGORY"]  else "Unknown",
     }
- 
- 
-def nuevo_vertice(registro):
-    return {
-        "id":               registro["zona"],
-        "suma_lat":         registro["lat"],
-        "suma_lon":         registro["lon"],
-        "suma_velocidad":   registro["velocidad"],
-        "suma_longitud":    registro["longitud"],
-        "suma_ancho":       registro["ancho"],
-        "suma_calado":      registro["calado"],
-        "total_registros":  1,
-        "set_mmsi":         {registro["mmsi"]},
-        "set_nombres":      {registro["nombre"]},
-        "set_tipos":        {registro["tipo"]},
-        "set_cargas":       {registro["carga"]},
-        "set_categorias":   {registro["categoria_velocidad"]},
-    }
- 
- 
-def actualizar_vertice(vertice, registro):
-    vertice["suma_lat"]       += registro["lat"]
-    vertice["suma_lon"]       += registro["lon"]
-    vertice["suma_velocidad"] += registro["velocidad"]
-    vertice["suma_longitud"]  += registro["longitud"]
-    vertice["suma_ancho"]     += registro["ancho"]
-    vertice["suma_calado"]    += registro["calado"]
-    vertice["total_registros"] += 1
-    vertice["set_mmsi"].add(registro["mmsi"])
-    vertice["set_nombres"].add(registro["nombre"])
-    vertice["set_tipos"].add(registro["tipo"])
-    vertice["set_cargas"].add(registro["carga"])
-    vertice["set_categorias"].add(registro["categoria_velocidad"])
- 
- 
-def finalizar_vertice(vertice):
-    n = vertice["total_registros"]
-    vertice["lat"]               = round(vertice["suma_lat"]      / n, 2)
-    vertice["lon"]               = round(vertice["suma_lon"]      / n, 2)
-    vertice["avg_sog"]           = round(vertice["suma_velocidad"] / n, 2)
-    vertice["avg_length"]        = round(vertice["suma_longitud"]  / n, 2)
-    vertice["avg_width"]         = round(vertice["suma_ancho"]     / n, 2)
-    vertice["avg_draft"]         = round(vertice["suma_calado"]    / n, 2)
-    vertice["lista_mmsi"]        = list(vertice["set_mmsi"])
-    vertice["nombres"]           = list(vertice["set_nombres"])
-    vertice["tipos"]             = list(vertice["set_tipos"])
-    vertice["cargas"]            = list(vertice["set_cargas"])
-    vertice["categorias"]        = list(vertice["set_categorias"])
-    del vertice["suma_lat"], vertice["suma_lon"], vertice["suma_velocidad"]
-    del vertice["suma_longitud"], vertice["suma_ancho"], vertice["suma_calado"]
-    del vertice["set_mmsi"], vertice["set_nombres"]
-    del vertice["set_tipos"], vertice["set_cargas"], vertice["set_categorias"]
- 
- 
-def nuevo_arco(zona_a, zona_b, dist, tiempo_min, mmsi, categoria):
-    lista_mmsi       = al.new_list()
-    lista_categorias = al.new_list()
-    al.add_last(lista_mmsi,       mmsi)
-    al.add_last(lista_categorias, categoria)
-    return {
-        "origen":            zona_a,
-        "destino":           zona_b,
-        "total_viajes":      1,
-        "distancia":         dist,
-        "suma_tiempos":      tiempo_min,
-        "tiempo_promedio":   None,
-        "lista_mmsi":        lista_mmsi,
-        "lista_categorias":  lista_categorias,
-    }
- 
- 
-def actualizar_arco(arco, tiempo_min, mmsi, categoria):
-    arco["total_viajes"]  += 1
-    arco["suma_tiempos"]  += tiempo_min
-    al.add_last(arco["lista_mmsi"],       mmsi)
-    al.add_last(arco["lista_categorias"], categoria)
- 
- 
 def primeros_ultimos_vertices(catalog):
-    llaves = mp.key_set(catalog["vertices"])
-    n      = len(llaves["elements"])
+    #llaves = digraph.vertices(catalog["graph"])
+    llaves = catalog["vertex_order"]
+    n = al.size(llaves)
     primeros = al.new_list()
     ultimos  = al.new_list()
     for i in range(min(5, n)):
-        vertice = mp.get(catalog["vertices"], llaves["elements"][i])
-        al.add_last(primeros, vertice)
-    for i in range(-1, -min(6, n + 1), -1):
-        vertice = mp.get(catalog["vertices"], llaves["elements"][i])
-        al.add_last(ultimos, vertice)
+        info = digraph.get_vertex_info(catalog["graph"], al.get_element(llaves, i))
+        al.add_last(primeros, info)
+    for i in range(max(0, n - 5), n):
+        info = digraph.get_vertex_info(catalog["graph"], al.get_element(llaves, i))
+        al.add_last(ultimos, info)
     return primeros, ultimos
+
+def distancia_haversine(lat1, lon1, lat2, lon2):
+    """
+    Calcula la distancia en kilómetros entre dos puntos geográficos
+    usando la fórmula de Haversine.
+    """
+    R = 6371.0
+    phi1 = radians(lat1)
+    phi2 = radians(lat2)
+    dphi = radians(lat2 - lat1)
+    dlambda = radians(lon2 - lon1)
+    a = sin(dphi / 2)**2 + cos(phi1) * cos(phi2) * sin(dlambda / 2)**2
+    c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    return round(R * c, 2)
+
+
+
 # Funciones de consulta sobre el catálogo
-
-
 def req_1(catalog):
     """
     Retorna el resultado del requerimiento 1
