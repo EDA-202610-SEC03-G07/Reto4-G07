@@ -491,25 +491,25 @@ def req_5(catalog, zona_origen, zona_destino):
     if info_destino is None or not info_destino["marked"]:
         return resultado
 
-    resultado["existe"] = True
-    resultado["costo_total"] = round(info_destino["dist_to"], 2)
-
     camino_inverso = al.new_list()
-
     actual = zona_destino
+    ruta_valida = True
 
-    while actual is not None:
+    while actual != zona_origen and actual is not None:
         al.add_last(camino_inverso, actual)
-
-        if actual == zona_origen:
-            break
 
         info_actual = mp.get(visited_map, actual)
 
         if info_actual is None:
-            break
+            ruta_valida = False
+            actual = None
+        else:
+            actual = info_actual["edge_from"]
 
-        actual = info_actual["edge_from"]
+    if actual is None or not ruta_valida:
+        return resultado
+
+    al.add_last(camino_inverso, zona_origen)
 
     camino = al.new_list()
 
@@ -518,6 +518,8 @@ def req_5(catalog, zona_origen, zona_destino):
 
     total_zonas = al.size(camino)
 
+    resultado["existe"] = True
+    resultado["costo_total"] = round(info_destino["dist_to"], 2)
     resultado["total_zonas"] = total_zonas
     resultado["total_arcos"] = total_zonas - 1
 
@@ -550,7 +552,7 @@ def req_5(catalog, zona_origen, zona_destino):
         for i in range(total_zonas - 5, total_zonas):
             al.add_last(resultado["vertices"], al.get_element(vertices_completos, i))
 
-    return resultado
+    return resultado    
 
 def req_6(catalog):
     """
