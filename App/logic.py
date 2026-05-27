@@ -381,12 +381,71 @@ def req_2(catalog, zona_origen, radio):
 
     return resultado
 
-def req_3(catalog):
+def req_3(catalog,n):
     """
     Retorna el resultado del requerimiento 3
     """
     # TODO: Modificar el requerimiento 3
-    pass
+
+    grafo = catalog["graph"]
+    visitados = set()
+    lista_arcos = []
+    cola = []
+    
+    todas_las_zonas = digraph.vertices(grafo)
+    
+    for i in range(al.size(todas_las_zonas)):
+        zona_inicio = al.get_element(todas_las_zonas, i)
+        
+        if zona_inicio not in visitados:
+            visitados.add(zona_inicio)
+            cola.append(zona_inicio)
+            
+            while cola:
+                zona_actual = cola.pop(0)
+                vecinos = digraph.adjacents(grafo, zona_actual)
+                
+                for j in range(al.size(vecinos)):
+                    vecino = al.get_element(vecinos, j)
+                    llave_arco = zona_actual + "_" + vecino
+                    arco = mp.get(catalog["edge_info_map"], llave_arco)
+                    
+                    if arco is not None:
+                        lista_arcos.append(arco)
+                    
+                    if vecino not in visitados:
+                        visitados.add(vecino)
+                        cola.append(vecino)
+    
+    lista_ordenada = merge_sort_arcos(lista_arcos)
+    
+    resultado = al.new_list()
+    
+    for arco in lista_ordenada[:n]:
+        origen = arco["source"] if arco["source"] else "Unknown"
+        destino = arco["target"] if arco["target"] else "Unknown"
+        viajes = arco["trips_count"] if arco["trips_count"] else "Unknown"
+        
+        if arco["distance"] is not None:
+            distancia = round(arco["distance"], 2)
+        else:
+            distancia = "Unknown"
+            
+        if arco["avg_time"] is not None:
+            tiempo_promedio = round(arco["avg_time"], 2)
+        else:
+            tiempo_promedio = "Unknown"
+        
+        al.add_last(resultado, {
+            "source":      origen,
+            "target":      destino,
+            "trips_count": viajes,
+            "distance":    distancia,
+            "avg_time":    tiempo_promedio,
+        })
+    
+    return resultado
+    
 
 
 def req_4(catalog, zona_origen):
@@ -659,3 +718,66 @@ def vertex_summary_req_5(info, peso_siguiente):
         "n_embarcaciones": al.size(mmsi_list),
         "peso_siguiente": peso_siguiente if peso_siguiente is not None else "Unknown"
     }
+def mezclar(izquierda, derecha):
+    resultado = []
+    i = 0
+    j = 0
+    
+    while i < len(izquierda) and j < len(derecha):
+        actual = izquierda[i]
+        siguiente = derecha[j]
+        
+        viajes_actual = actual["trips_count"]
+        viajes_siguiente = siguiente["trips_count"]
+        
+        if viajes_actual > viajes_siguiente:
+            resultado.append(izquierda[i])
+            i += 1
+        
+        elif viajes_actual < viajes_siguiente:
+            resultado.append(derecha[j])
+            j += 1
+        
+        else:
+            origen_actual = actual["source"]
+            origen_siguiente = siguiente["source"]
+            
+            if origen_actual < origen_siguiente:
+                resultado.append(izquierda[i])
+                i += 1
+            
+            elif origen_actual > origen_siguiente:
+                resultado.append(derecha[j])
+                j += 1
+            
+            else:
+                destino_actual = actual["target"]
+                destino_siguiente = siguiente["target"]
+                
+                if destino_actual <= destino_siguiente:
+                    resultado.append(izquierda[i])
+                    i += 1
+                else:
+                    resultado.append(derecha[j])
+                    j += 1
+    
+    while i < len(izquierda):
+        resultado.append(izquierda[i])
+        i += 1
+    
+    while j < len(derecha):
+        resultado.append(derecha[j])
+        j += 1
+    
+    return resultado
+
+
+def merge_sort_arcos(lista):
+    if len(lista) <= 1:
+        return lista
+    
+    mitad = len(lista) // 2
+    izquierda = merge_sort_arcos(lista[:mitad])
+    derecha = merge_sort_arcos(lista[mitad:])
+    
+    return mezclar(izquierda, derecha)
