@@ -9,7 +9,7 @@ from DataStructures.Graph import digraph
 from DataStructures.Map import map_linear_probing as mp
 from DataStructures.Priority_queue import priority_queue as pq
 from DataStructures.List import array_list as al
- 
+from DataStructures.Graph import bfs as bfs_module
 
 
 def new_logic():
@@ -278,12 +278,63 @@ def distancia_haversine(lat1, lon1, lat2, lon2):
 
 
 # Funciones de consulta sobre el catálogo
-def req_1(catalog):
+def req_1(catalog, zona_origen, zona_destino):
     """
     Retorna el resultado del requerimiento 1
     """
     # TODO: Modificar el requerimiento 1
-    pass
+    resultado = {
+        "existe":       False,
+        "total_zonas":  0,
+        "vertices":     al.new_list(),
+        "origen_ok":    digraph.contains_vertex(catalog["graph"], zona_origen),
+        "destino_ok":   digraph.contains_vertex(catalog["graph"], zona_destino),
+    }
+
+    if not resultado["origen_ok"] or not resultado["destino_ok"]:
+        return resultado
+
+    if zona_origen == zona_destino:
+        resultado["existe"]      = True
+        resultado["total_zonas"] = 1
+        info = digraph.get_vertex_info(catalog["graph"], zona_origen)
+        al.add_last(resultado["vertices"], vertex_summary(info))
+        return resultado
+
+    # BFS desde el origen
+    visited_map = bfs_module.bfs(catalog["graph"], zona_origen)
+
+    if not bfs_module.has_path_to(zona_destino, visited_map):
+        return resultado
+
+    # Reconstruir camino con path_to
+    path_stack = bfs_module.path_to(zona_destino, visited_map)
+    path = al.new_list()
+    from DataStructures.Stack import stack as st
+    while not st.is_empty(path_stack):
+        al.add_last(path, st.pop(path_stack))
+
+    total = al.size(path)
+    resultado["existe"] = True
+    resultado["total_zonas"] = total
+
+    # Índices a mostrar primeros 5 y últimos 5
+    if total <= 10:
+        for i in range(total):
+            zona_key = al.get_element(path, i)
+            info_v   = digraph.get_vertex_info(catalog["graph"], zona_key)
+            al.add_last(resultado["vertices"], vertex_summary(info_v))
+    else:
+        for i in range(5):
+            zona_key = al.get_element(path, i)
+            info_v   = digraph.get_vertex_info(catalog["graph"], zona_key)
+            al.add_last(resultado["vertices"], vertex_summary(info_v))
+        for i in range(total - 5, total):
+            zona_key = al.get_element(path, i)
+            info_v   = digraph.get_vertex_info(catalog["graph"], zona_key)
+            al.add_last(resultado["vertices"], vertex_summary(info_v))
+
+    return resultado
 
 
 def req_2(catalog):
@@ -302,12 +353,67 @@ def req_3(catalog):
     pass
 
 
-def req_4(catalog):
+def req_4(catalog, zona_origen):
     """
     Retorna el resultado del requerimiento 4
     """
     # TODO: Modificar el requerimiento 4
-    pass
+    resultado = {
+        "origen_ok":   digraph.contains_vertex(catalog["graph"], zona_origen),
+        "total_zonas": 0,
+        "costo_total": 0.0,
+        "arcos":       al.new_list(),
+        "arcos_tabla": al.new_list(),
+    }
+ 
+    if not resultado["origen_ok"]:
+        return resultado
+ 
+    # Dijkstra
+    aux = bfs_module.dijkstra(catalog["graph"], zona_origen)
+    visited_map = aux["visited"]
+ 
+    # Recorrer visited_map para extraer arcos del SPT
+    llaves = mp.key_set(visited_map)
+    for i in range(al.size(llaves)):
+        key_v = al.get_element(llaves, i)
+        info  = mp.get(visited_map, key_v)
+        if info["marked"] and info["edge_from"] is not None:
+            origen_arco  = info["edge_from"]
+            dist_destino = info["dist_to"]
+            dist_origen  = mp.get(visited_map, origen_arco)["dist_to"]
+            peso = round(dist_destino - dist_origen, 2)
+            arco = {
+                "origen":  origen_arco if origen_arco  is not None else "Unknown",
+                "destino": key_v       if key_v        is not None else "Unknown",
+                "peso":    peso,
+            }
+            al.add_last(resultado["arcos"], arco)
+        if info["marked"]:
+            resultado["total_zonas"] += 1
+ 
+    # Ordenar arcos por origen asc, en empate por destino asc
+    sort_arcos(resultado["arcos"])
+ 
+    # Costo total
+    costo = 0.0
+    for i in range(al.size(resultado["arcos"])):
+        costo += al.get_element(resultado["arcos"], i)["peso"]
+    resultado["costo_total"] = round(costo, 2)
+ 
+    # Primeros 5 y últimos 5 arcos
+    total_arcos = al.size(resultado["arcos"])
+    if total_arcos <= 10:
+        for i in range(total_arcos):
+            al.add_last(resultado["arcos_tabla"], al.get_element(resultado["arcos"], i))
+    else:
+        for i in range(5):
+            al.add_last(resultado["arcos_tabla"], al.get_element(resultado["arcos"], i))
+        for i in range(total_arcos - 5, total_arcos):
+            al.add_last(resultado["arcos_tabla"], al.get_element(resultado["arcos"], i))
+ 
+    return resultado
+    
 
 
 def req_5(catalog):
@@ -340,3 +446,48 @@ def delta_time(start, end):
     """
     elapsed = float(end - start)
     return elapsed
+
+#Otros helpers
+def vertex_summary(info):
+    """Extrae la información resumida de un vértice para el Req 1."""
+    mmsi_list    = info["mmsi_list"]    if info["mmsi_list"]    is not None else al.new_list()
+    vessel_names = info["vessel_names"] if info["vessel_names"] is not None else al.new_list()
+    return {
+        "id": info["id"]  if info["id"]  is not None else "Unknown",
+        "lat":info["lat"] if info["lat"] is not None else "Unknown",
+        "lon":info["lon"] if info["lon"] is not None else "Unknown",
+        "n_embarcaciones": al.size(mmsi_list),
+        "nombres":primeros_ultimos_nombres(vessel_names, 3),
+    }
+
+
+def primeros_ultimos_nombres(nombres_al, n):
+    """Retorna lista Python con los primeros n y últimos n nombres (o todos si ≤ 2n)."""
+    total = al.size(nombres_al)
+    result = al.new_list()
+    if total == 0:
+        al.add_last(result, "Unknown")
+        return result
+    if total <= 2 * n:
+        for i in range(total):
+            nombre = al.get_element(nombres_al, i)
+            al.add_last(result, nombre if nombre and str(nombre) not in ("None", "") else "Unknown")
+    else:
+        for i in range(n):
+            nombre = al.get_element(nombres_al, i)
+            al.add_last(result, nombre if nombre and str(nombre) not in ("None", "") else "Unknown")
+        for i in range(total - n, total):
+            nombre = al.get_element(nombres_al, i)
+            al.add_last(result, nombre if nombre and str(nombre) not in ("None", "") else "Unknown")
+    return result
+
+def sort_arcos(arcos_al):
+    al.merge_sort(arcos_al, cmp_arcos)
+    return arcos_al
+
+def cmp_arcos(a, b):
+    if a["origen"] < b["origen"]:
+        return True
+    if a["origen"] == b["origen"] and a["destino"] < b["destino"]:
+        return True
+    return False

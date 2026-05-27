@@ -66,12 +66,66 @@ def print_data(control, id):
     #TODO: Realizar la función para imprimir un elemento
     pass
 
-def print_req_1(control):
+def print_req_1(control, zona_origen, zona_destino):
     """
         Función que imprime la solución del Requerimiento 1 en consola
     """
     # TODO: Imprimir el resultado del requerimiento 1
-    pass
+    resultado = logic.req_1(control, zona_origen, zona_destino)
+ 
+    print("\n" + "=" * 70)
+    print("          REQUERIMIENTO 1 — TRAYECTORIA ENTRE ZONAS")
+    print("=" * 70)
+ 
+    # Validar existencia de zonas
+    if not resultado["origen_ok"]:
+        print(f"\n La zona de origen '{zona_origen}' no existe en el grafo.")
+        return
+    if not resultado["destino_ok"]:
+        print(f"\n La zona de destino '{zona_destino}' no existe en el grafo.")
+        return
+ 
+    if not resultado["existe"]:
+        print(f"\n No existe trayectoria entre '{zona_origen}' y '{zona_destino}'.")
+        return
+ 
+    total = resultado["total_zonas"]
+    print(f"\n  Trayectoria encontrada de '{zona_origen}' a '{zona_destino}'")
+    print(f"  Total de zonas en la trayectoria: {total}")
+ 
+    if total > 10:
+        print("\n" + "=" * 70)
+        print("Se muestran los 5 primeros y 5 últimos vértices")
+        print("=" * 70)
+ 
+    print()
+    vertices_list = resultado["vertices"]
+    rows = []
+    for i in range(al.size(vertices_list)):
+        v = al.get_element(vertices_list, i)
+        nombres_al  = v["nombres"]
+        partes = []
+        for j in range(al.size(nombres_al)):
+            partes.append(al.get_element(nombres_al, j))
+        nombres_str = " | ".join(partes)
+        rows.append([
+            i + 1,
+            v["id"],
+            v["lat"],
+            v["lon"],
+            v["n_embarcaciones"],
+            nombres_str,
+        ])
+ 
+    headers = [
+        "#",
+        "ID Zona",
+        "Latitud",
+        "Longitud",
+        "Embarcaciones",
+        "Nombres (primeros 3 y últimos 3)",
+    ]
+    print(tabulate(rows, headers=headers, tablefmt="rounded_outline",colalign=("center", "left", "right", "right", "right", "left")))
 
 
 def print_req_2(control):
@@ -90,12 +144,46 @@ def print_req_3(control):
     pass
 
 
-def print_req_4(control):
+def print_req_4(control, zona_origen):
     """
         Función que imprime la solución del Requerimiento 4 en consola
     """
     # TODO: Imprimir el resultado del requerimiento 4
-    pass
+    resultado = logic.req_4(control, zona_origen)
+ 
+    print("\n" + "=" * 70)
+    print("     REQUERIMIENTO 4 — RED DE CAMINOS MÍNIMOS (DIJKSTRA)")
+    print("=" * 70)
+ 
+    if not resultado["origen_ok"]:
+        print(f"\n La zona '{zona_origen}' no existe en el grafo.")
+        return
+ 
+    print(f"\n  Zona de origen       : {zona_origen}")
+    print(f"  Zonas conectadas     : {resultado['total_zonas']}")
+    print(f"  Costo total de la red: {resultado['costo_total']:.2f} km")
+    print(f"  Total de arcos SPT   : {al.size(resultado['arcos'])}")
+ 
+    total_arcos = al.size(resultado["arcos"])
+    if total_arcos > 10:
+        print("\n" + "=" * 70)
+        print("Se muestran los 5 primeros y 5 últimos arcos")
+        print("=" * 70)
+ 
+    rows = []
+    for i in range(al.size(resultado["arcos_tabla"])):
+        arco = al.get_element(resultado["arcos_tabla"], i)
+        rows.append([
+            i + 1,
+            arco["origen"]  if arco["origen"]  is not None else "Unknown",
+            arco["destino"] if arco["destino"] is not None else "Unknown",
+            f"{arco['peso']:.2f}",
+        ])
+ 
+    headers = ["#", "Zona Origen", "Zona Destino", "Peso (km)"]
+    print()
+    print(tabulate(rows, headers=headers, tablefmt="rounded_outline",
+                   colalign=("center", "left", "left", "right")))
 
 
 def print_req_5(control):
@@ -159,7 +247,9 @@ def main():
             print("Cargando información de los archivos ....\n")
             data = load_data(control)
         elif int(inputs) == 1:
-            print_req_1(control)
+            zona_origen = input("Ingrese la zona de origen: ").strip()
+            zona_destino = input("Ingrese la zona de destino: ").strip()
+            print_req_1(control, zona_origen, zona_destino)
 
         elif int(inputs) == 2:
             print_req_2(control)
@@ -168,7 +258,8 @@ def main():
             print_req_3(control)
 
         elif int(inputs) == 4:
-            print_req_4(control)
+            zona_origen = input("Ingrese la zona de origen: ").strip()
+            print_req_4(control, zona_origen)
 
         elif int(inputs) == 5:
             print_req_5(control)
