@@ -337,13 +337,49 @@ def req_1(catalog, zona_origen, zona_destino):
     return resultado
 
 
-def req_2(catalog):
+def req_2(catalog, zona_origen, radio):
     """
-    Retorna el resultado del requerimiento 2
+    Retorna el resultado del requerimiento 2.
+    Detecta las zonas de navegación dentro de un radio alrededor
+    de una zona de navegación de interés.
     """
-    # TODO: Modificar el requerimiento 2
-    pass
 
+    resultado = {
+        "zona_ok": digraph.contains_vertex(catalog["graph"], zona_origen),
+        "total_zonas": 0,
+        "zonas": al.new_list()
+    }
+
+    if not resultado["zona_ok"]:
+        return resultado
+
+    info_origen = digraph.get_vertex_info(catalog["graph"], zona_origen)
+
+    lat_origen = info_origen["lat"]
+    lon_origen = info_origen["lon"]
+
+    vertices = digraph.vertices(catalog["graph"])
+
+    for i in range(al.size(vertices)):
+        zona_actual = al.get_element(vertices, i)
+        info_zona = digraph.get_vertex_info(catalog["graph"], zona_actual)
+
+        distancia = distancia_haversine(
+            lat_origen,
+            lon_origen,
+            info_zona["lat"],
+            info_zona["lon"]
+        )
+
+        if distancia <= radio:
+            resumen = vertex_summary_req_2(info_zona, distancia)
+            al.add_last(resultado["zonas"], resumen)
+
+    al.merge_sort(resultado["zonas"], cmp_req_2)
+
+    resultado["total_zonas"] = al.size(resultado["zonas"])
+
+    return resultado
 
 def req_3(catalog):
     """
@@ -416,12 +452,105 @@ def req_4(catalog, zona_origen):
     
 
 
-def req_5(catalog):
+def req_5(catalog, zona_origen, zona_destino):
     """
-    Retorna el resultado del requerimiento 5
+    Retorna el resultado del requerimiento 5.
+    Encuentra la ruta más eficiente entre dos zonas usando Dijkstra.
     """
-    # TODO: Modificar el requerimiento 5
-    pass
+
+    resultado = {
+        "origen_ok": digraph.contains_vertex(catalog["graph"], zona_origen),
+        "destino_ok": digraph.contains_vertex(catalog["graph"], zona_destino),
+        "existe": False,
+        "costo_total": 0.0,
+        "total_zonas": 0,
+        "total_arcos": 0,
+        "vertices": al.new_list()
+    }
+
+    if not resultado["origen_ok"] or not resultado["destino_ok"]:
+        return resultado
+
+    if zona_origen == zona_destino:
+        resultado["existe"] = True
+        resultado["costo_total"] = 0.0
+        resultado["total_zonas"] = 1
+        resultado["total_arcos"] = 0
+
+        info = digraph.get_vertex_info(catalog["graph"], zona_origen)
+        resumen = vertex_summary_req_5(info, "Unknown")
+        al.add_last(resultado["vertices"], resumen)
+
+        return resultado
+
+    aux = bfs_module.dijkstra(catalog["graph"], zona_origen)
+    visited_map = aux["visited"]
+
+    info_destino = mp.get(visited_map, zona_destino)
+
+    if info_destino is None or not info_destino["marked"]:
+        return resultado
+
+    resultado["existe"] = True
+    resultado["costo_total"] = round(info_destino["dist_to"], 2)
+
+    camino_inverso = al.new_list()
+
+    actual = zona_destino
+
+    while actual is not None:
+        al.add_last(camino_inverso, actual)
+
+        if actual == zona_origen:
+            break
+
+        info_actual = mp.get(visited_map, actual)
+
+        if info_actual is None:
+            break
+
+        actual = info_actual["edge_from"]
+
+    camino = al.new_list()
+
+    for i in range(al.size(camino_inverso) - 1, -1, -1):
+        al.add_last(camino, al.get_element(camino_inverso, i))
+
+    total_zonas = al.size(camino)
+
+    resultado["total_zonas"] = total_zonas
+    resultado["total_arcos"] = total_zonas - 1
+
+    vertices_completos = al.new_list()
+
+    for i in range(total_zonas):
+        zona_actual = al.get_element(camino, i)
+        info_zona = digraph.get_vertex_info(catalog["graph"], zona_actual)
+
+        if i < total_zonas - 1:
+            zona_siguiente = al.get_element(camino, i + 1)
+
+            dist_actual = mp.get(visited_map, zona_actual)["dist_to"]
+            dist_siguiente = mp.get(visited_map, zona_siguiente)["dist_to"]
+
+            peso_siguiente = round(dist_siguiente - dist_actual, 2)
+        else:
+            peso_siguiente = "Unknown"
+
+        resumen = vertex_summary_req_5(info_zona, peso_siguiente)
+        al.add_last(vertices_completos, resumen)
+
+    if total_zonas <= 10:
+        for i in range(total_zonas):
+            al.add_last(resultado["vertices"], al.get_element(vertices_completos, i))
+    else:
+        for i in range(5):
+            al.add_last(resultado["vertices"], al.get_element(vertices_completos, i))
+
+        for i in range(total_zonas - 5, total_zonas):
+            al.add_last(resultado["vertices"], al.get_element(vertices_completos, i))
+
+    return resultado
 
 def req_6(catalog):
     """
@@ -491,3 +620,40 @@ def cmp_arcos(a, b):
     if a["origen"] == b["origen"] and a["destino"] < b["destino"]:
         return True
     return False
+
+#aux req 2
+def vertex_summary_req_2(info, distancia):
+    return {
+        "id": info["id"] if info["id"] is not None else "Unknown",
+        "lat": info["lat"] if info["lat"] is not None else "Unknown",
+        "lon": info["lon"] if info["lon"] is not None else "Unknown",
+        "records_count": info["records_count"] if info["records_count"] is not None else "Unknown",
+        "avg_sog": info["avg_sog"] if info["avg_sog"] is not None else "Unknown",
+        "distancia": round(distancia, 2)
+    }
+    
+def cmp_req_2(a, b):
+    if a["distancia"] < b["distancia"]:
+        return True
+    if a["distancia"] == b["distancia"]:
+        try:
+            return int(a["id"]) < int(b["id"])
+        except:
+            return str(a["id"]) < str(b["id"])
+    return False
+
+#aux req 5
+def vertex_summary_req_5(info, peso_siguiente):
+    """
+    Extrae la información resumida de un vértice para el Req 5.
+    """
+
+    mmsi_list = info["mmsi_list"] if info["mmsi_list"] is not None else al.new_list()
+
+    return {
+        "id": info["id"] if info["id"] is not None else "Unknown",
+        "lat": info["lat"] if info["lat"] is not None else "Unknown",
+        "lon": info["lon"] if info["lon"] is not None else "Unknown",
+        "n_embarcaciones": al.size(mmsi_list),
+        "peso_siguiente": peso_siguiente if peso_siguiente is not None else "Unknown"
+    }

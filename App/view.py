@@ -128,12 +128,61 @@ def print_req_1(control, zona_origen, zona_destino):
     print(tabulate(rows, headers=headers, tablefmt="rounded_outline",colalign=("center", "left", "right", "right", "right", "left")))
 
 
-def print_req_2(control):
+def print_req_2(control, zona_origen, radio):
     """
         Función que imprime la solución del Requerimiento 2 en consola
     """
-    # TODO: Imprimir el resultado del requerimiento 2
-    pass
+    resultado = logic.req_2(control, zona_origen, radio)
+
+    print("\n" + "=" * 70)
+    print("      REQUERIMIENTO 2 — MOVIMIENTOS DENTRO DE UN ÁREA")
+    print("=" * 70)
+
+    if not resultado["zona_ok"]:
+        print(f"\n La zona de navegación '{zona_origen}' no existe en el grafo.")
+        return
+
+    print(f"\n  Zona de interés      : {zona_origen}")
+    print(f"  Radio consultado     : {radio:.2f} km")
+    print(f"  Zonas alcanzables    : {resultado['total_zonas']}")
+
+    zonas_list = resultado["zonas"]
+
+    if al.size(zonas_list) == 0:
+        print("\n No se encontraron zonas dentro del área de interés.")
+        return
+
+    rows = []
+    for i in range(al.size(zonas_list)):
+        zona = al.get_element(zonas_list, i)
+
+        rows.append([
+            i + 1,
+            zona["id"] if zona["id"] is not None else "Unknown",
+            zona["lat"] if zona["lat"] is not None else "Unknown",
+            zona["lon"] if zona["lon"] is not None else "Unknown",
+            zona["records_count"] if zona["records_count"] is not None else "Unknown",
+            zona["avg_sog"] if zona["avg_sog"] is not None else "Unknown",
+            f"{zona['distancia']:.2f}" if zona["distancia"] is not None else "Unknown",
+        ])
+
+    headers = [
+        "#",
+        "ID Zona",
+        "Latitud",
+        "Longitud",
+        "Total Registros",
+        "Vel. Promedio",
+        "Distancia (km)",
+    ]
+
+    print()
+    print(tabulate(
+        rows,
+        headers=headers,
+        tablefmt="rounded_outline",
+        colalign=("center", "left", "right", "right", "right", "right", "right")
+    ))
 
 
 def print_req_3(control):
@@ -186,12 +235,74 @@ def print_req_4(control, zona_origen):
                    colalign=("center", "left", "left", "right")))
 
 
-def print_req_5(control):
+def print_req_5(control, zona_origen, zona_destino):
     """
         Función que imprime la solución del Requerimiento 5 en consola
     """
-    # TODO: Imprimir el resultado del requerimiento 5
-    pass
+
+    resultado = logic.req_5(control, zona_origen, zona_destino)
+
+    print("\n" + "=" * 70)
+    print("       REQUERIMIENTO 5 — RUTA MÁS EFICIENTE ENTRE ZONAS")
+    print("=" * 70)
+
+    if not resultado["origen_ok"]:
+        print(f"\n La zona de origen '{zona_origen}' no existe en el grafo.")
+        return
+
+    if not resultado["destino_ok"]:
+        print(f"\n La zona de destino '{zona_destino}' no existe en el grafo.")
+        return
+
+    if not resultado["existe"]:
+        print(f"\n No existe ruta entre '{zona_origen}' y '{zona_destino}'.")
+        return
+
+    print(f"\n  Ruta encontrada de '{zona_origen}' a '{zona_destino}'")
+    print(f"  Costo total de la ruta : {resultado['costo_total']:.2f} km")
+    print(f"  Total de zonas         : {resultado['total_zonas']}")
+    print(f"  Total de arcos         : {resultado['total_arcos']}")
+
+    if resultado["total_zonas"] > 10:
+        print("\n" + "=" * 70)
+        print("Se muestran los 5 primeros y 5 últimos vértices de la ruta")
+        print("=" * 70)
+
+    rows = []
+    vertices_list = resultado["vertices"]
+
+    for i in range(al.size(vertices_list)):
+        v = al.get_element(vertices_list, i)
+
+        peso = v["peso_siguiente"]
+        if peso != "Unknown":
+            peso = f"{peso:.2f}"
+
+        rows.append([
+            i + 1,
+            v["id"],
+            v["lat"],
+            v["lon"],
+            v["n_embarcaciones"],
+            peso
+        ])
+
+    headers = [
+        "#",
+        "ID Zona",
+        "Latitud",
+        "Longitud",
+        "Embarcaciones",
+        "Peso al siguiente (km)"
+    ]
+
+    print()
+    print(tabulate(
+        rows,
+        headers=headers,
+        tablefmt="rounded_outline",
+        colalign=("center", "left", "right", "right", "right", "right")
+    ))
 
 
 def print_req_6(control):
@@ -252,7 +363,9 @@ def main():
             print_req_1(control, zona_origen, zona_destino)
 
         elif int(inputs) == 2:
-            print_req_2(control)
+            zona_origen = input("Ingrese el identificador de la zona de navegación de interés: ")
+            radio = float(input("Ingrese el radio del área de interés en kilómetros: "))
+            print_req_2(control, zona_origen, radio)
 
         elif int(inputs) == 3:
             print_req_3(control)
@@ -262,7 +375,9 @@ def main():
             print_req_4(control, zona_origen)
 
         elif int(inputs) == 5:
-            print_req_5(control)
+            zona_origen = input("Ingrese el identificador de la zona de origen: ")
+            zona_destino = input("Ingrese el identificador de la zona de destino: ")
+            print_req_5(control, zona_origen, zona_destino) 
 
         elif int(inputs) == 5:
             print_req_6(control)
