@@ -614,11 +614,79 @@ def req_5(catalog, zona_origen, zona_destino):
     return resultado    
 
 def req_6(catalog):
-    """
-    Retorna el resultado del requerimiento 6
-    """
-    # TODO: Modificar el requerimiento 6
-    pass
+    grafo = catalog["graph"]
+    todas_las_zonas = digraph.vertices(grafo)
+    
+    adyacencia = {}
+    for i in range(al.size(todas_las_zonas)):
+        zona = al.get_element(todas_las_zonas, i)
+        adyacencia[zona] = []
+    
+    llaves_arcos = mp.key_set(catalog["edge_info_map"])
+    for i in range(al.size(llaves_arcos)):
+        llave = al.get_element(llaves_arcos, i)
+        arco = mp.get(catalog["edge_info_map"], llave)
+        
+        origen = arco["source"]
+        destino = arco["target"]
+        llave_inversa = destino + "_" + origen
+        arco_inverso = mp.get(catalog["edge_info_map"], llave_inversa)
+        
+        if arco_inverso is not None:
+            if destino not in adyacencia[origen]:
+                adyacencia[origen].append(destino)
+            if origen not in adyacencia[destino]:
+                adyacencia[destino].append(origen)
+    
+    visitados = set()
+    componentes = []
+    
+    todas_ordenadas = sorted(adyacencia.keys())
+    
+    for zona_inicio in todas_ordenadas:
+        if zona_inicio not in visitados:
+            componente = []
+            cola = []
+            visitados.add(zona_inicio)
+            cola.append(zona_inicio)
+            
+            while cola:
+                zona_actual = cola.pop(0)
+                componente.append(zona_actual)
+                
+                for vecino in adyacencia[zona_actual]:
+                    if vecino not in visitados:
+                        visitados.add(vecino)
+                        cola.append(vecino)
+            
+            componentes.append(sorted(componente))
+    
+    componentes = ordenar_componentes(componentes)
+    
+    resultado = al.new_list()
+    
+    for idx in range(len(componentes)):
+        componente = componentes[idx]
+        total_registros = 0
+        suma_sog = 0.0
+        
+        for zona in componente:
+            info = digraph.get_vertex_info(grafo, zona)
+            total_registros += info["records_count"]
+            suma_sog += info["avg_sog"]
+        
+        avg_sog_subred = round(suma_sog / len(componente), 2)
+        
+        al.add_last(resultado, {
+            "id_subred":       idx + 1,
+            "total_zonas":     len(componente),
+            "zonas":           componente,
+            "total_registros": total_registros,
+            "avg_sog":         avg_sog_subred,
+        })
+    
+    return resultado
+
 
 
 # Funciones para medir tiempos de ejecucion
@@ -781,3 +849,22 @@ def merge_sort_arcos(lista):
     derecha = merge_sort_arcos(lista[mitad:])
     
     return mezclar(izquierda, derecha)
+
+
+def ordenar_componentes(componentes):
+    for i in range(len(componentes)):
+        for j in range(len(componentes) - 1 - i):
+            actual = componentes[j]
+            siguiente = componentes[j + 1]
+            
+            tamanio_actual = len(actual)
+            tamanio_siguiente = len(siguiente)
+            
+            if tamanio_actual < tamanio_siguiente:
+                componentes[j], componentes[j + 1] = componentes[j + 1], componentes[j]
+            
+            elif tamanio_actual == tamanio_siguiente:
+                if actual[0] > siguiente[0]:
+                    componentes[j], componentes[j + 1] = componentes[j + 1], componentes[j]
+    
+    return componentes 
