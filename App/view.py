@@ -419,7 +419,7 @@ def main():
 
         elif int(inputs) == 3:
             n = int(input("Ingrese el número de conexiones a consultar: "))
-            print_req_3(control)
+            print_req_3(control, n)
 
         elif int(inputs) == 4:
             zona_origen = input("Ingrese la zona de origen: ").strip()
@@ -431,7 +431,6 @@ def main():
             print_req_5(control, zona_origen, zona_destino) 
 
         elif int(inputs) == 6:
-        
             print_req_6(control)
 
         elif int(inputs) == 7:
