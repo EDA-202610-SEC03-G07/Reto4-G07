@@ -185,12 +185,33 @@ def print_req_2(control, zona_origen, radio):
     ))
 
 
-def print_req_3(control):
+def print_req_3(control, n):
     """
         Función que imprime la solución del Requerimiento 3 en consola
     """
     # TODO: Imprimir el resultado del requerimiento 3
-    pass
+    resultado = logic.req_3(control, n)
+
+    print("\n" + "=" * 70)
+    print("     REQUERIMIENTO 3 — CONEXIONES MÁS FRECUENTES")
+    print("=" * 70)
+    print(f"\n  Top {n} conexiones más frecuentes\n")
+
+    rows = []
+    for i in range(al.size(resultado)):
+        arco = al.get_element(resultado, i)
+        rows.append([
+            i + 1,
+            arco["source"],
+            arco["target"],
+            arco["trips_count"],
+            arco["distance"],
+            arco["avg_time"],
+        ])
+
+    headers = ["#", "Zona Origen", "Zona Destino", "Total Viajes", "Distancia (km)", "Tiempo Prom (min)"]
+    print(tabulate(rows, headers=headers, tablefmt="rounded_outline",
+                   colalign=("center", "left", "left", "right", "right", "right")))
 
 
 def print_req_4(control, zona_origen):
@@ -310,7 +331,36 @@ def print_req_6(control):
         Función que imprime la solución del Requerimiento 6 en consola
     """
     # TODO: Imprimir el resultado del requerimiento 6
-    pass
+    resultado = logic.req_6(control)
+
+    total_subredes = al.size(resultado)
+
+    print("\n" + "=" * 70)
+    print("     REQUERIMIENTO 6 — CONECTIVIDAD BIDIRECCIONAL")
+    print("=" * 70)
+    print(f"\n  Total de subredes encontradas: {total_subredes}\n")
+
+    limite = min(5, total_subredes)
+
+    for i in range(limite):
+        subred = al.get_element(resultado, i)
+        zonas = subred["zonas"]
+        cantidad_zonas = len(zonas)
+
+        print(f"  Subred {subred['id_subred']}")
+        print(f"  Zonas en la subred : {subred['total_zonas']}")
+        print(f"  Total registros    : {subred['total_registros']}")
+        print(f"  Velocidad promedio : {subred['avg_sog']}")
+
+        if cantidad_zonas <= 10:
+            zonas_str = " | ".join(zonas)
+        else:
+            primeras = " | ".join(zonas[:5])
+            ultimas = " | ".join(zonas[cantidad_zonas - 5:])
+            zonas_str = primeras + "  ...  " + ultimas
+
+        print(f"  Zonas              : {zonas_str}")
+        print("-" * 70)
 
 
 # Funciones auxiliares para formatear la salida
@@ -379,7 +429,8 @@ def main():
             zona_destino = input("Ingrese el identificador de la zona de destino: ")
             print_req_5(control, zona_origen, zona_destino) 
 
-        elif int(inputs) == 5:
+        elif int(inputs) == 6:
+            n = int(input("Ingrese el número de conexiones a consultar: "))
             print_req_6(control)
 
         elif int(inputs) == 7:
