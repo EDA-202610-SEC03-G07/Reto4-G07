@@ -117,12 +117,12 @@ def load_data(catalog, filename):
         info = digraph.get_vertex_info(catalog["graph"], zona)
         n = info["records_count"]
 
-        info["lat"] = round(info["suma_lat"] / n, 2)
-        info["lon"] = round(info["suma_lon"] / n, 2)
-        info["avg_sog"] = round(info["suma_velocidad"] / n, 2)
-        info["avg_length"] = round(info["suma_longitud"] / n, 2)
-        info["avg_width"] = round(info["suma_ancho"] / n, 2)
-        info["avg_draft"] = round(info["suma_calado"]/ n, 2)
+        info["lat"] =info["suma_lat"] / n
+        info["lon"] =info["suma_lon"] / n
+        info["avg_sog"] =info["suma_velocidad"] / n
+        info["avg_length"] =info["suma_longitud"] / n
+        info["avg_width"] =info["suma_ancho"] / n
+        info["avg_draft"] =info["suma_calado"]/ n
         info["mmsi_list"] = mp.key_set(info["map_mmsi"])
         info["vessel_names"] = mp.key_set(info["map_nombres"])
         info["vessel_types"] = mp.key_set(info["map_tipos"])
@@ -273,7 +273,7 @@ def distancia_haversine(lat1, lon1, lat2, lon2):
     dlambda = radians(lon2 - lon1)
     a = sin(dphi / 2)**2 + cos(phi1) * cos(phi2) * sin(dlambda / 2)**2
     c = 2 * atan2(sqrt(a), sqrt(1 - a))
-    return round(R * c, 2)
+    return R * c
 
 
 
