@@ -405,8 +405,10 @@ def req_3(catalog,n):
                 zona_actual = cola.pop(0)
                 vecinos = digraph.adjacents(grafo, zona_actual)
                 
-                for j in range(al.size(vecinos)):
-                    vecino = al.get_element(vecinos, j)
+                
+
+                for j in range(len(vecinos)):
+                    vecino = vecinos[j]
                     llave_arco = zona_actual + "_" + vecino
                     arco = mp.get(catalog["edge_info_map"], llave_arco)
                     
@@ -641,7 +643,7 @@ def req_6(catalog):
     visitados = set()
     componentes = []
     
-    todas_ordenadas = sorted(adyacencia.keys())
+    todas_ordenadas = merge_sort_zonas(list(adyacencia.keys()))
     
     for zona_inicio in todas_ordenadas:
         if zona_inicio not in visitados:
@@ -659,9 +661,9 @@ def req_6(catalog):
                         visitados.add(vecino)
                         cola.append(vecino)
             
-            componentes.append(sorted(componente))
+            componentes.append(merge_sort_zonas(componente))
     
-    componentes = ordenar_componentes(componentes)
+    componentes = merge_sort_componentes(componentes) 
     
     resultado = al.new_list()
     
@@ -868,3 +870,82 @@ def ordenar_componentes(componentes):
                     componentes[j], componentes[j + 1] = componentes[j + 1], componentes[j]
     
     return componentes 
+def mezclar_zonas(izquierda, derecha):
+    resultado = []
+    i = 0
+    j = 0
+    
+    while i < len(izquierda) and j < len(derecha):
+        if izquierda[i] <= derecha[j]:
+            resultado.append(izquierda[i])
+            i += 1
+        else:
+            resultado.append(derecha[j])
+            j += 1
+    
+    while i < len(izquierda):
+        resultado.append(izquierda[i])
+        i += 1
+    
+    while j < len(derecha):
+        resultado.append(derecha[j])
+        j += 1
+    
+    return resultado
+
+
+def merge_sort_zonas(lista):
+    if len(lista) <= 1:
+        return lista
+    
+    mitad = len(lista) // 2
+    izquierda = merge_sort_zonas(lista[:mitad])
+    derecha = merge_sort_zonas(lista[mitad:])
+    
+    return mezclar_zonas(izquierda, derecha)
+
+def mezclar_componentes(izquierda, derecha):
+    resultado = []
+    i = 0
+    j = 0
+    
+    while i < len(izquierda) and j < len(derecha):
+        tamanio_actual = len(izquierda[i])
+        tamanio_siguiente = len(derecha[j])
+        
+        if tamanio_actual > tamanio_siguiente:
+            resultado.append(izquierda[i])
+            i += 1
+        
+        elif tamanio_actual < tamanio_siguiente:
+            resultado.append(derecha[j])
+            j += 1
+        
+        else:
+            if izquierda[i][0] <= derecha[j][0]:
+                resultado.append(izquierda[i])
+                i += 1
+            else:
+                resultado.append(derecha[j])
+                j += 1
+    
+    while i < len(izquierda):
+        resultado.append(izquierda[i])
+        i += 1
+    
+    while j < len(derecha):
+        resultado.append(derecha[j])
+        j += 1
+    
+    return resultado
+
+
+def merge_sort_componentes(lista):
+    if len(lista) <= 1:
+        return lista
+    
+    mitad = len(lista) // 2
+    izquierda = merge_sort_componentes(lista[:mitad])
+    derecha = merge_sort_componentes(lista[mitad:])
+    
+    return mezclar_componentes(izquierda, derecha)
