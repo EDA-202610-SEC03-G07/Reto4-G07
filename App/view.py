@@ -209,9 +209,11 @@ def print_req_3(control, n):
             arco["avg_time"],
         ])
 
-    headers = ["#", "Zona Origen", "Zona Destino", "Total Viajes", "Distancia (km)", "Tiempo Prom (min)"]
-    print(tabulate(rows, headers=headers, tablefmt="rounded_outline",
-                   colalign=("center", "left", "left", "right", "right", "right")))
+    if rows:
+        headers = ["#", "Zona Origen", "Zona Destino", "Total Viajes", "Distancia (km)", "Tiempo Prom (min)"]
+        print(tabulate(rows, headers=headers, tablefmt="rounded_outline"))
+    else:
+        print("\n  No se encontraron conexiones.") 
 
 
 def print_req_4(control, zona_origen):
