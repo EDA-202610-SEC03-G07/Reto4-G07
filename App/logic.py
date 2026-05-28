@@ -661,9 +661,9 @@ def req_6(catalog):
                         visitados.add(vecino)
                         cola.append(vecino)
             
-            componentes.append(sorted(componente))
+            componentes.append(merge_sort_zonas(componente))
     
-    componentes = ordenar_componentes(componentes)
+    componentes = merge_sort_componentes(componentes) 
     
     resultado = al.new_list()
     
@@ -903,3 +903,49 @@ def merge_sort_zonas(lista):
     derecha = merge_sort_zonas(lista[mitad:])
     
     return mezclar_zonas(izquierda, derecha)
+
+def mezclar_componentes(izquierda, derecha):
+    resultado = []
+    i = 0
+    j = 0
+    
+    while i < len(izquierda) and j < len(derecha):
+        tamanio_actual = len(izquierda[i])
+        tamanio_siguiente = len(derecha[j])
+        
+        if tamanio_actual > tamanio_siguiente:
+            resultado.append(izquierda[i])
+            i += 1
+        
+        elif tamanio_actual < tamanio_siguiente:
+            resultado.append(derecha[j])
+            j += 1
+        
+        else:
+            if izquierda[i][0] <= derecha[j][0]:
+                resultado.append(izquierda[i])
+                i += 1
+            else:
+                resultado.append(derecha[j])
+                j += 1
+    
+    while i < len(izquierda):
+        resultado.append(izquierda[i])
+        i += 1
+    
+    while j < len(derecha):
+        resultado.append(derecha[j])
+        j += 1
+    
+    return resultado
+
+
+def merge_sort_componentes(lista):
+    if len(lista) <= 1:
+        return lista
+    
+    mitad = len(lista) // 2
+    izquierda = merge_sort_componentes(lista[:mitad])
+    derecha = merge_sort_componentes(lista[mitad:])
+    
+    return mezclar_componentes(izquierda, derecha)
