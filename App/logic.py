@@ -289,9 +289,12 @@ def req_1(catalog, zona_origen, zona_destino):
         "vertices":     al.new_list(),
         "origen_ok":    digraph.contains_vertex(catalog["graph"], zona_origen),
         "destino_ok":   digraph.contains_vertex(catalog["graph"], zona_destino),
+        "tiempo_ejecucion": 0.0,
     }
-
+    start_time = get_time()
     if not resultado["origen_ok"] or not resultado["destino_ok"]:
+        end_time = get_time()
+        resultado["tiempo_ejecucion"] = delta_time(start_time, end_time)
         return resultado
 
     if zona_origen == zona_destino:
@@ -305,6 +308,8 @@ def req_1(catalog, zona_origen, zona_destino):
     visited_map = bfs_module.bfs(catalog["graph"], zona_origen)
 
     if not bfs_module.has_path_to(zona_destino, visited_map):
+        end_time = get_time()
+        resultado["tiempo_ejecucion"] = delta_time(start_time, end_time)
         return resultado
 
     # Reconstruir camino con path_to
@@ -333,7 +338,8 @@ def req_1(catalog, zona_origen, zona_destino):
             zona_key = al.get_element(path, i)
             info_v   = digraph.get_vertex_info(catalog["graph"], zona_key)
             al.add_last(resultado["vertices"], vertex_summary(info_v))
-
+    end_time = get_time()
+    resultado["tiempo_ejecucion"] = delta_time(start_time, end_time)
     return resultado
 
 
@@ -461,11 +467,14 @@ def req_4(catalog, zona_origen):
         "costo_total": 0.0,
         "arcos":       al.new_list(),
         "arcos_tabla": al.new_list(),
+        "tiempo_ejecucion": 0.0,
     }
- 
+    start_time = get_time()
     if not resultado["origen_ok"]:
+        end_time = get_time()
+        resultado["tiempo_ejecucion"] = delta_time(start_time, end_time)
         return resultado
- 
+    
     # Dijkstra
     aux = bfs_module.dijkstra(catalog["graph"], zona_origen)
     visited_map = aux["visited"]
@@ -509,8 +518,11 @@ def req_4(catalog, zona_origen):
         for i in range(total_arcos - 5, total_arcos):
             al.add_last(resultado["arcos_tabla"], al.get_element(resultado["arcos"], i))
  
+    end_time = get_time()
+    resultado["tiempo_ejecucion"] = delta_time(start_time, end_time)
+
     return resultado
-    
+
 
 
 def req_5(catalog, zona_origen, zona_destino):

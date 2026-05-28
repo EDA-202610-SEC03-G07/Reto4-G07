@@ -76,7 +76,7 @@ def print_req_1(control, zona_origen, zona_destino):
     print("\n" + "=" * 70)
     print("          REQUERIMIENTO 1 — TRAYECTORIA ENTRE ZONAS")
     print("=" * 70)
- 
+    print("Tiempo de ejecución (ms): {:.2f}".format(resultado["tiempo_ejecucion"]))
     # Validar existencia de zonas
     if not resultado["origen_ok"]:
         print(f"\n La zona de origen '{zona_origen}' no existe en el grafo.")
@@ -141,7 +141,7 @@ def print_req_2(control, zona_origen, radio):
     if not resultado["zona_ok"]:
         print(f"\n La zona de navegación '{zona_origen}' no existe en el grafo.")
         return
-
+ 
     print(f"\n  Zona de interés      : {zona_origen}")
     print(f"  Radio consultado     : {radio:.2f} km")
     print(f"  Zonas alcanzables    : {resultado['total_zonas']}")
@@ -226,7 +226,7 @@ def print_req_4(control, zona_origen):
     print("\n" + "=" * 70)
     print("     REQUERIMIENTO 4 — RED DE CAMINOS MÍNIMOS (DIJKSTRA)")
     print("=" * 70)
- 
+    print("Tiempo de ejecución (ms): {:.2f}".format(resultado["tiempo_ejecucion"]))
     if not resultado["origen_ok"]:
         print(f"\n La zona '{zona_origen}' no existe en el grafo.")
         return
