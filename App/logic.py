@@ -405,8 +405,10 @@ def req_3(catalog,n):
                 zona_actual = cola.pop(0)
                 vecinos = digraph.adjacents(grafo, zona_actual)
                 
-                for j in range(al.size(vecinos)):
-                    vecino = al.get_element(vecinos, j)
+                
+
+                for j in range(len(vecinos)):
+                    vecino = vecinos[j]
                     llave_arco = zona_actual + "_" + vecino
                     arco = mp.get(catalog["edge_info_map"], llave_arco)
                     
