@@ -643,7 +643,7 @@ def req_6(catalog):
     visitados = set()
     componentes = []
     
-    todas_ordenadas = sorted(adyacencia.keys())
+    todas_ordenadas = merge_sort_zonas(list(adyacencia.keys()))
     
     for zona_inicio in todas_ordenadas:
         if zona_inicio not in visitados:
@@ -870,3 +870,36 @@ def ordenar_componentes(componentes):
                     componentes[j], componentes[j + 1] = componentes[j + 1], componentes[j]
     
     return componentes 
+def mezclar_zonas(izquierda, derecha):
+    resultado = []
+    i = 0
+    j = 0
+    
+    while i < len(izquierda) and j < len(derecha):
+        if izquierda[i] <= derecha[j]:
+            resultado.append(izquierda[i])
+            i += 1
+        else:
+            resultado.append(derecha[j])
+            j += 1
+    
+    while i < len(izquierda):
+        resultado.append(izquierda[i])
+        i += 1
+    
+    while j < len(derecha):
+        resultado.append(derecha[j])
+        j += 1
+    
+    return resultado
+
+
+def merge_sort_zonas(lista):
+    if len(lista) <= 1:
+        return lista
+    
+    mitad = len(lista) // 2
+    izquierda = merge_sort_zonas(lista[:mitad])
+    derecha = merge_sort_zonas(lista[mitad:])
+    
+    return mezclar_zonas(izquierda, derecha)
